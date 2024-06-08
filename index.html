@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simple Game</title>
+</head>
+<body>
+    <h1>Simple Click Game</h1>
+    <p>Click the button to increase your score!</p>
+    <p>Score: <span id="score">0</span></p>
+    <button onclick="increaseScore()">Click me!</button>
+    <button onclick="endGame()">End Game</button>
+
+    <h2>High Scores</h2>
+    <ul id="high-scores"></ul>
+
+    <script>
+        const apiUrl = 'http://localhost:3000';
+        let score = 0;
+
+        // Function to increase score
+        function increaseScore() {
+            score += 10;
+            document.getElementById('score').innerText = score;
+        }
+
+        // Function to save score
+        async function saveScore(username, score) {
+            try {
+                const response = await fetch(`${apiUrl}/save-score`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ username, score })
+                });
+                const data = await response.json();
+                console.log('Score saved:', data);
+                getHighScores();
+            } catch (error) {
+                console.error('Error saving score:', error);
+            }
+        }
+
+        // Function to get high scores
+        async function getHighScores() {
+            try {
+                const response = await fetch(`${apiUrl}/high-scores`);
+                const scores = await response.json();
+                console.log('High scores:', scores);
+                const highScoresList = document.getElementById('high-scores');
+                highScoresList.innerHTML = '';
+                scores.forEach(score => {
+                    const li = document.createElement('li');
+                    li.innerText = `${score.username}: ${score.score}`;
+                    highScoresList.appendChild(li);
+                });
+            } catch (error) {
+                console.error('Error retrieving high scores:', error);
+            }
+        }
+
+        // Function to end game
+        function endGame() {
+            const username = prompt("Enter your name:");
+            if (username) {
+                saveScore(username, score);
+            }
+        }
+
+        // Initial high scores fetch
+        getHighScores();
+    </script>
+</body>
+</html>
