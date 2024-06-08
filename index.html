@@ -4,20 +4,36 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Simple Game</title>
+    <style>
+        .circle {
+            width: 50px;
+            height: 50px;
+            background-color: red;
+            border-radius: 50%;
+            position: absolute;
+            display: none;
+        }
+        .hidden {
+            display: none;
+        }
+    </style>
 </head>
 <body>
-    <h1>Simple Click Game</h1>
-    <p>Click the button to increase your score!</p>
-    <p>Score: <span id="score">0</span></p>
-    <button onclick="increaseScore()">Click me!</button>
+    <h1 class="hidden">Simple Click Game</h1>
+    <p class="hidden">Click the button to increase your score!</p>
+    <p class="hidden">Score: <span id="score">0</span></p>
+    <button class="hidden" onclick="increaseScore()">Click me!</button>
     <button onclick="endGame()">End Game</button>
 
-    <h2>High Scores</h2>
-    <ul id="high-scores"></ul>
+    <div id="circle" class="circle"></div>
+
+    <h2 class="hidden">High Scores</h2>
+    <ul id="high-scores" class="hidden"></ul>
 
     <script>
         const apiUrl = 'http://localhost:3000';
         let score = 0;
+        let gameEnded = false;
 
         // Function to increase score
         function increaseScore() {
@@ -66,11 +82,51 @@
             const username = prompt("Enter your name:");
             if (username) {
                 saveScore(username, score);
+                gameEnded = true;
+                showAllElements();
             }
+        }
+
+        // Function to show circle
+        function showCircle() {
+            if (gameEnded) return;
+            const circle = document.getElementById('circle');
+            circle.style.top = `${Math.random() * (window.innerHeight - 50)}px`;
+            circle.style.left = `${Math.random() * (window.innerWidth - 50)}px`;
+            circle.style.display = 'block';
+            setTimeout(() => {
+                circle.style.display = 'none';
+            }, 20000); // 20 seconds
+        }
+
+        // Event listener for circle click
+        document.getElementById('circle').addEventListener('click', () => {
+            score += 1;
+            document.getElementById('score').innerText = score;
+            document.getElementById('circle').style.display = 'none';
+        });
+
+        // Show circle every 20 seconds
+        setInterval(showCircle, 1000);
+
+        // Hide all elements except End Game button
+        function hideAllElements() {
+            document.querySelectorAll('h1, p, button:not([onclick="endGame()"]), h2, ul').forEach(element => {
+                element.classList.add('hidden');
+            });
+        }
+
+        // Show all elements
+        function showAllElements() {
+            document.querySelectorAll('.hidden').forEach(element => {
+                element.classList.remove('hidden');
+            });
         }
 
         // Initial high scores fetch
         getHighScores();
+        hideAllElements();
     </script>
 </body>
 </html>
+
