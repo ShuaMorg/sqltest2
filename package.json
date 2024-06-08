@@ -10,6 +10,7 @@
   "license": "ISC",
   "description": "",
   "dependencies": {
+    "@vercel/postgres": "^0.8.0",
     "cors": "^2.8.5",
     "express": "^4.19.2",
     "sequelize": "^6.37.3",

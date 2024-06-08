@@ -1,6 +1,7 @@
 const express = require('express');
-const Sequelize = require('sequelize');
+const { Sequelize, DataTypes } = require('sequelize');
 const cors = require('cors');
+const path = require('path');
 
 // Initialize Express
 const app = express();
@@ -16,17 +17,20 @@ const sequelize = new Sequelize({
 // Define the Score model
 const Score = sequelize.define('Score', {
   username: {
-    type: Sequelize.STRING,
+    type: DataTypes.STRING,
     allowNull: false
   },
   score: {
-    type: Sequelize.INTEGER,
+    type: DataTypes.INTEGER,
     allowNull: false
   }
 });
 
 // Sync database
 sequelize.sync();
+
+// Serve static files from the 'public' directory
+app.use(express.static(path.join(__dirname, 'public')));
 
 // Endpoint to save score
 app.post('/save-score', async (req, res) => {
@@ -35,6 +39,7 @@ app.post('/save-score', async (req, res) => {
     const newScore = await Score.create({ username, score });
     res.status(201).json(newScore);
   } catch (error) {
+    console.error('Error saving score:', error);
     res.status(500).json({ error: 'Error saving score' });
   }
 });
@@ -48,8 +53,14 @@ app.get('/high-scores', async (req, res) => {
     });
     res.status(200).json(scores);
   } catch (error) {
+    console.error('Error retrieving scores:', error);
     res.status(500).json({ error: 'Error retrieving scores' });
   }
+});
+
+// Serve the index.html file for the root URL
+app.get('/', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
 // Start the server
