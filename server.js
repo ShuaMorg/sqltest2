@@ -1,70 +1,47 @@
 const express = require('express');
-const { Sequelize, DataTypes } = require('sequelize');
-const cors = require('cors');
+const sqlite3 = require('sqlite3').verbose();
+const bodyParser = require('body-parser');
 const path = require('path');
 
-// Initialize Express
 const app = express();
-app.use(cors()); // Enable CORS
-app.use(express.json());
+const db = new sqlite3.Database('./highscores.db');
 
-// Initialize Sequelize with SQLite
-const sequelize = new Sequelize({
-  dialect: 'sqlite',
-  storage: 'scores.sqlite'
+app.use(bodyParser.json());
+app.use(express.static(__dirname));
+
+// Create highscores table if it doesn't exist
+db.serialize(() => {
+  db.run(`CREATE TABLE IF NOT EXISTS highscores (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    score INTEGER
+  )`);
 });
 
-// Define the Score model
-const Score = sequelize.define('Score', {
-  username: {
-    type: DataTypes.STRING,
-    allowNull: false
-  },
-  score: {
-    type: DataTypes.INTEGER,
-    allowNull: false
-  }
+// Get high scores
+app.get('/highscores', (req, res) => {
+  db.all("SELECT * FROM highscores ORDER BY score DESC LIMIT 10", (err, rows) => {
+    if (err) {
+      res.status(500).send(err);
+      return;
+    }
+    res.json(rows);
+  });
 });
 
-// Sync database
-sequelize.sync();
-
-// Serve static files from the 'public' directory
-app.use(express.static(path.join(__dirname, 'public')));
-
-// Endpoint to save score
-app.post('/save-score', async (req, res) => {
-  const { username, score } = req.body;
-  try {
-    const newScore = await Score.create({ username, score });
-    res.status(201).json(newScore);
-  } catch (error) {
-    console.error('Error saving score:', error);
-    res.status(500).json({ error: 'Error saving score' });
-  }
-});
-
-// Endpoint to get high scores
-app.get('/high-scores', async (req, res) => {
-  try {
-    const scores = await Score.findAll({
-      order: [['score', 'DESC']],
-      limit: 10
-    });
-    res.status(200).json(scores);
-  } catch (error) {
-    console.error('Error retrieving scores:', error);
-    res.status(500).json({ error: 'Error retrieving scores' });
-  }
-});
-
-// Serve the index.html file for the root URL
-app.get('/', (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'index.html'));
+// Add new high score
+app.post('/highscores', (req, res) => {
+  const score = req.body.score;
+  db.run(`INSERT INTO highscores (score) VALUES (?)`, [score], function(err) {
+    if (err) {
+      res.status(500).send(err);
+      return;
+    }
+    res.status(201).json({ id: this.lastID });
+  });
 });
 
 // Start the server
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
-  console.log(`Server is running on port ${PORT}`);
+  console.log(`Server is running on http://localhost:${PORT}`);
 });
