@@ -1,133 +1,325 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Simple Game</title>
-    <style>
-        .circle {
-            width: 50px;
-            height: 50px;
-            background-color: red;
-            border-radius: 50%;
-            position: absolute;
-            display: none;
-        }
-        .hidden {
-            display: none;
-        }
-    </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Edwyn's Sassy Oil</title>
+<style>
+  body {
+    margin: 0;
+    overflow: hidden;
+    background: url('bgplay.png') no-repeat center center fixed;
+    background-size: cover;
+    font-family: 'Comic Sans MS', cursive;
+  }
+
+  #gameCanvas { display: block; margin: 0 auto; }
+
+  #score {
+    font-size: 18px;
+    color: #333;
+    transform: rotate(-15deg);
+  }
+
+  .game-over {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 240px;
+    height: 120px;
+    background: url('gameover.png') no-repeat center center;
+    background-size: contain;
+    display: none;
+  }
+
+  .game-over-oil {
+    position: absolute;
+    top: 30%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    display: none;
+  }
+
+  #resetButton {
+    position: absolute;
+    top: calc(50% + 150px);
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 180px;
+    height: 120px;
+    background: url('reset.png') no-repeat center center;
+    background-size: contain;
+    cursor: pointer;
+    display: none;
+  }
+
+  #scoreContainer {
+    position: absolute;
+    top: 10px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 24px;
+    display: flex;
+    align-items: center;
+  }
+
+  #chilliesImage {
+    width: 100px;
+    height: 50px;
+    background: url('chillies.png') no-repeat center center;
+    background-size: contain;
+    margin-right: 10px;
+  }
+
+  #pauseButton {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    width: 50px;
+    height: 50px;
+    background: url('pause.png') no-repeat center center;
+    background-size: cover;
+    cursor: pointer;
+  }
+
+  #highScoresLink {
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    font-size: 18px;
+    color: #333;
+    text-decoration: none;
+  }
+</style>
 </head>
 <body>
-    <h1 class="hidden">Simple Click Game</h1>
-    <p class="hidden">Click the button to increase your score!</p>
-    <p class="hidden">Score: <span id="score">0</span></p>
-    <button class="hidden" onclick="increaseScore()">Click me!</button>
-    <button onclick="endGame()">End Game</button>
+<canvas id="gameCanvas"></canvas>
+<div id="resetButton"></div>
+<div class="game-over"></div>
 
-    <div id="circle" class="circle"></div>
+<div class="game-over-oil">
+  <a href="oil.html"><img src="oil.png" alt="Game Over"></a>
+</div>
 
-    <h2 class="hidden">High Scores</h2>
-    <ul id="high-scores" class="hidden"></ul>
+<div id="scoreContainer">
+  <div id="chilliesImage"></div>
+  <div id="score">0</div>
+</div>
 
-    <script>
-        const apiUrl = 'http://localhost:3000';
-        let score = 0;
-        let gameEnded = false;
+<div id="pauseButton"></div>
 
-        // Function to increase score
-        function increaseScore() {
-            score += 10;
-            document.getElementById('score').innerText = score;
-        }
+<a id="highScoresLink" href="highscores.html">High Scores</a>
 
-        // Function to save score
-        async function saveScore(username, score) {
-            try {
-                const response = await fetch(`${apiUrl}/save-score`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({ username, score })
-                });
-                const data = await response.json();
-                console.log('Score saved:', data);
-                getHighScores();
-            } catch (error) {
-                console.error('Error saving score:', error);
-            }
-        }
+<script>
+  const canvas = document.getElementById('gameCanvas');
+  const ctx = canvas.getContext('2d');
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
 
-        // Function to get high scores
-        async function getHighScores() {
-            try {
-                const response = await fetch(`${apiUrl}/high-scores`);
-                const scores = await response.json();
-                console.log('High scores:', scores);
-                const highScoresList = document.getElementById('high-scores');
-                highScoresList.innerHTML = '';
-                scores.forEach(score => {
-                    const li = document.createElement('li');
-                    li.innerText = `${score.username}: ${score.score}`;
-                    highScoresList.appendChild(li);
-                });
-            } catch (error) {
-                console.error('Error retrieving high scores:', error);
-            }
-        }
+  const bottleWidth = 106;
+  const bottleHeight = 214;
+  let bottleX = (canvas.width - bottleWidth) / 2;
+  let score = 0;
+  let drops = [];
+  let flies = [];
+  let dropSpeed = 2;
+  let flySpeed = 2;
+  let lastTime = 0;
+  let lastFlyTime = 0;
+  let gameOver = false;
+  let isPaused = false;
 
-        // Function to end game
-        function endGame() {
-            const username = prompt("Enter your name:");
-            if (username) {
-                saveScore(username, score);
-                gameEnded = true;
-                showAllElements();
-            }
-        }
+  const chilliImages = ['chilli.png', 'chilli2.png', 'chilli3.png', 'chilli4.png'].map(src => {
+    const img = new Image();
+    img.src = src;
+    return img;
+  });
 
-        // Function to show circle
-        function showCircle() {
-            if (gameEnded) return;
-            const circle = document.getElementById('circle');
-            circle.style.top = `${Math.random() * (window.innerHeight - 50)}px`;
-            circle.style.left = `${Math.random() * (window.innerWidth - 50)}px`;
-            circle.style.display = 'block';
-            setTimeout(() => {
-                circle.style.display = 'none';
-            }, 20000); // 20 seconds
-        }
+  const flyImage = new Image();
+  flyImage.src = 'fly1.png';
 
-        // Event listener for circle click
-        document.getElementById('circle').addEventListener('click', () => {
-            score += 1;
-            document.getElementById('score').innerText = score;
-            document.getElementById('circle').style.display = 'none';
-        });
+  const bgImage = new Image();
+  bgImage.src = 'bg.png';
 
-        // Show circle every 20 seconds
-        setInterval(showCircle, 1000);
+  const bowlImage = new Image();
+  bowlImage.src = 'bowl.png';
 
-        // Hide all elements except End Game button
-        function hideAllElements() {
-            document.querySelectorAll('h1, p, button:not([onclick="endGame()"]), h2, ul').forEach(element => {
-                element.classList.add('hidden');
-            });
-        }
+  const themeMusic = new Audio('theme.mp3');
+  
+  class Drop {
+    constructor(){
+      this.x = Math.random() * canvas.width;
+      this.y = 0;
+      this.size = 64;
+      this.image = chilliImages[Math.floor(Math.random() * chilliImages.length)];
+    }
 
-        // Show all elements
-        function showAllElements() {
-            document.querySelectorAll('.hidden').forEach(element => {
-                element.classList.remove('hidden');
-            });
-        }
+    draw(){
+      ctx.drawImage(this.image, this.x - this.size / 2, this.y - this.size / 2, this.size, this.size);
+    }
 
-        // Initial high scores fetch
-        getHighScores();
-        hideAllElements();
-    </script>
+    update(){
+      this.y += dropSpeed;
+      if(this.y > canvas.height){
+        gameOver = true;
+      }
+    }
+  }
+
+  class Fly {
+    constructor(){
+      this.x = Math.random() * canvas.width;
+      this.y = 0;
+      this.size = 64;
+      this.image = flyImage;
+    }
+
+    draw(){
+      ctx.drawImage(this.image, this.x - this.size / 2, this.y - this.size / 2, this.size, this.size);
+    }
+
+    update(){
+      this.y += flySpeed;
+    }
+  }
+
+  function handleDrops(time){
+    if(time - lastTime > 8000){
+      dropSpeed *= 1.1;
+      flySpeed *= 1.1;
+      lastTime = time;
+    }
+    if(Math.random() > 0.99){
+      drops.push(new Drop());
+    }
+    for(let i = 0; i < drops.length; i++){
+      drops[i].update();
+      drops[i].draw();
+      if(gameOver){
+        drops = [];
+        displayGameOver();
+        return;
+      } else if(drops[i].x > bottleX && drops[i].x < bottleX + bottleWidth && drops[i].y > canvas.height - bottleHeight){
+        score++;
+        drops.splice(i, 1);
+        i--;
+      }
+    }
+  }
+
+  function handleFlies(time){
+    if(time - lastFlyTime > 10000){
+      flies.push(new Fly());
+      lastFlyTime = time;
+    }
+    for(let i = 0; i < flies.length; i++){
+      flies[i].update();
+      flies[i].draw();
+      if(flies[i].x > bottleX && flies[i].x < bottleX + bottleWidth && flies[i].y > canvas.height - bottleHeight){
+        score -= 5;
+        flies.splice(i, 1);
+        i--;
+      } else if (flies[i].y > canvas.height) {
+        flies.splice(i, 1);
+        i--;
+      }
+    }
+  }
+
+  function drawBottle(){
+    if (!gameOver) {
+      ctx.drawImage(bowlImage, bottleX, canvas.height - bottleHeight, bottleWidth, bottleHeight);
+    }
+  }
+
+  function moveBottle(event){
+    if (event.touches) {
+      bottleX = event.touches[0].clientX - bottleWidth / 2;
+    }
+  }
+
+  function handleKeyDown(event) {
+    const step = 20;
+    if (event.key === 'ArrowLeft') {
+      bottleX = Math.max(0, bottleX - step);
+    } else if (event.key === 'ArrowRight') {
+      bottleX = Math.min(canvas.width - bottleWidth, bottleX + step);
+    }
+  }
+
+  function displayGameOver(){
+    document.querySelector('.game-over').style.display = 'block';
+    document.querySelector('.game-over-oil').style.display = 'block';
+    document.getElementById('resetButton').style.display = 'block';
+    bowlImage.style.display = 'none';
+
+    // Send the score to the server
+    fetch('/submit-score', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ score })
+    });
+  }
+
+  function resetGame() {
+    score = 0;
+    drops = [];
+    flies = [];
+    dropSpeed = 2;
+    flySpeed = 2;
+    lastTime = 0;
+    lastFlyTime = 0;
+    gameOver = false;
+    document.querySelector('.game-over').style.display = 'none';
+    document.querySelector('.game-over-oil').style.display = 'none';
+    document.getElementById('resetButton').style.display = 'none';
+    bowlImage.style.display = 'block';
+    requestAnimationFrame(gameLoop);
+  }
+
+  function togglePause() {
+    isPaused = !isPaused;
+    document.getElementById('pauseButton').style.backgroundImage = isPaused ? 'url("play.png")' : 'url("pause.png")';
+    if (!isPaused) {
+      requestAnimationFrame(gameLoop);
+    }
+  }
+
+  document.getElementById('pauseButton').addEventListener('click', function(event){
+    event.stopPropagation();
+    togglePause();
+  });
+
+  function gameLoop(timestamp){
+    if(!gameOver && !isPaused){
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.drawImage(bgImage, 0, 0, canvas.width, canvas.height);
+      handleDrops(timestamp);
+      handleFlies(timestamp);
+      drawBottle();
+      requestAnimationFrame(gameLoop);
+      document.getElementById('score').innerText = score;
+    }
+  }
+
+  function startGame() {
+    canvas.addEventListener('touchmove', moveBottle);
+    window.addEventListener('keydown', handleKeyDown);
+    themeMusic.loop = true;
+    themeMusic.play();
+    document.body.removeEventListener('click', startGame);
+    requestAnimationFrame(gameLoop);
+  }
+
+  document.body.addEventListener('click', startGame);
+  document.getElementById('resetButton').addEventListener('click', resetGame);
+</script>
+
 </body>
 </html>
+
 
 
